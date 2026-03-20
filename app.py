@@ -1,4 +1,6 @@
 import os
+import subprocess
+import json
 import streamlit as st
 from pathlib import Path
 from dotenv import load_dotenv
@@ -53,6 +55,26 @@ def get_default_key(env_var):
     if not key:
         key = os.environ.get(env_var, "")
     return key
+
+
+def fetch_task_title(task_number):
+    """Fetch task title from Meta Phabricator using jf CLI."""
+    number = task_number.strip().lstrip("Tt")
+    try:
+        result = subprocess.run(
+            ["jf", "graphql", "--query", f'{{ task(number: {number}) {{ name }} }}'],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode == 0:
+            data = json.loads(result.stdout)
+            task = data.get("task")
+            if task and task.get("name"):
+                return task["name"]
+        return None
+    except Exception:
+        return None
 
 
 def call_groq(api_key, task_number, current_title):
@@ -110,7 +132,7 @@ CALL_FUNCTIONS = {
 st.set_page_config(page_title="Bug Title Agent", page_icon="🐛", layout="centered")
 
 st.title("🐛 Bug Title Agent")
-st.markdown("Enter a task number and current bug title to get better title suggestions.")
+st.markdown("Enter a task number to auto-fetch the title, or type it manually.")
 
 st.divider()
 
@@ -135,17 +157,27 @@ with st.sidebar:
         else:
             st.info(f"Enter your API key. {provider_config['help']}")
 
-col1, col2 = st.columns([1, 3])
-with col1:
-    task_number = st.text_input("Task Number", placeholder="T12345")
-with col2:
-    current_title = st.text_input("Current Bug Title", placeholder="login not working")
+task_number = st.text_input("Task Number", placeholder="T12345")
+
+fetched_title = None
+if task_number:
+    with st.spinner("Fetching task title..."):
+        fetched_title = fetch_task_title(task_number)
+    if fetched_title:
+        st.success(f"Fetched title: **{fetched_title}**")
+
+current_title = st.text_input(
+    "Current Bug Title",
+    value=fetched_title or "",
+    placeholder="login not working",
+    help="Auto-filled from task number, or enter manually",
+)
 
 if st.button("Suggest Better Titles", type="primary", use_container_width=True):
     if not api_key:
         st.warning("Please enter your API key in the sidebar.")
     elif not task_number or not current_title:
-        st.warning("Please enter both a task number and current title.")
+        st.warning("Please enter both a task number and title.")
     else:
         with st.spinner("Generating better titles..."):
             try:
