@@ -27,6 +27,11 @@ For each input, provide:
 Keep your response focused and practical."""
 
 PROVIDERS = {
+    "Groq (Free)": {
+        "key_env": "GROQ_API_KEY",
+        "placeholder": "gsk_...",
+        "help": "Get a free key at https://console.groq.com/keys (no credit card needed)",
+    },
     "Gemini (Free)": {
         "key_env": "GEMINI_API_KEY",
         "placeholder": "AIza...",
@@ -48,6 +53,24 @@ def get_default_key(env_var):
     if not key:
         key = os.environ.get(env_var, "")
     return key
+
+
+def call_groq(api_key, task_number, current_title):
+    from groq import Groq
+
+    client = Groq(api_key=api_key)
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        max_tokens=1024,
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {
+                "role": "user",
+                "content": f'Task Number: {task_number}\nCurrent Bug Title: "{current_title}"\n\nPlease suggest better titles.',
+            },
+        ],
+    )
+    return response.choices[0].message.content
 
 
 def call_gemini(api_key, task_number, current_title):
@@ -77,6 +100,12 @@ def call_claude(api_key, task_number, current_title):
     )
     return message.content[0].text
 
+
+CALL_FUNCTIONS = {
+    "Groq (Free)": call_groq,
+    "Gemini (Free)": call_gemini,
+    "Claude (Paid)": call_claude,
+}
 
 st.set_page_config(page_title="Bug Title Agent", page_icon="🐛", layout="centered")
 
@@ -120,11 +149,7 @@ if st.button("Suggest Better Titles", type="primary", use_container_width=True):
     else:
         with st.spinner("Generating better titles..."):
             try:
-                if provider == "Gemini (Free)":
-                    result = call_gemini(api_key, task_number, current_title)
-                else:
-                    result = call_claude(api_key, task_number, current_title)
-
+                result = CALL_FUNCTIONS[provider](api_key, task_number, current_title)
                 st.divider()
                 st.subheader(f"Suggestions for {task_number}")
                 st.markdown(result)
@@ -132,4 +157,4 @@ if st.button("Suggest Better Titles", type="primary", use_container_width=True):
                 st.error(f"Error: {e}")
 
 st.divider()
-st.caption("Powered by Claude AI & Google Gemini")
+st.caption("Powered by Groq, Google Gemini & Claude AI")
