@@ -1,5 +1,7 @@
 anthropic
 google-generativeai
 groq
+openpyxl
+pandas
 python-dotenv
 streamlit
