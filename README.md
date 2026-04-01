@@ -16,7 +16,7 @@ A Meta-internal tool that reviews bug reports for completeness and suggests bett
 
 1. **Clone the repo and create a virtual environment:**
    ```bash
-   cd bug_title_agent
+   cd defectlens
    python3 -m venv venv
    source venv/bin/activate
    pip install -r requirements.txt
@@ -43,7 +43,7 @@ Opens at `http://localhost:8501`.
 ### CLI
 ```bash
 source venv/bin/activate
-python3 bug_title_agent.py "T12345" "login not working"
+python3 defectlens_cli.py "T12345" "login not working"
 ```
 
 ## How It Works
