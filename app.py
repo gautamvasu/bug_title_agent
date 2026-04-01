@@ -17,7 +17,9 @@ For EACH checklist item, output EXACTLY one of these formats (use the exact emoj
 - 🟡 **PARTIALLY PRESENT**: <checklist item> — <what is missing or incomplete>
 - 🔴 **MISSING**: <checklist item> — <what the reporter should add>
 
-After listing all items, give an overall completeness score (e.g., "5/8 items covered").
+After listing all items, give an overall completeness score in EXACTLY this format:
+Overall completeness score: X/Y items covered (Z%)
+where Z is the percentage rounded to the nearest whole number.
 
 IMPORTANT: If no log signals are provided in the input, always flag it as:
 🔴 **MISSING**: Log attachment (bugreport/logcat) — No log file was attached. Please attach relevant logs for debugging.
@@ -198,8 +200,19 @@ def check_mandatory_tags(mandatory_tags, actual_tags):
         else:
             results.append(f"- 🔴 **MISSING**: Tag `{tag_clean}` — This mandatory tag is not applied to the task.")
     total = len([t for t in mandatory_tags if t.strip()])
-    results.append(f"\nMandatory tags score: {present_count}/{total} present.")
-    return "\n\n".join(results)
+    if total > 0:
+        pct = (present_count / total) * 100
+        if pct >= 80:
+            score_color = "#198754"
+        elif pct >= 50:
+            score_color = "#d4930d"
+        else:
+            score_color = "#dc3545"
+        results.append(f'<div style="color:{score_color};font-weight:bold;margin-top:0.5em;">Mandatory tags score: {present_count}/{total} present ({pct:.0f}%)</div>')
+    # Join tag items, then append score separately with HTML line break
+    tag_items = results[:-1]
+    score_line = results[-1]
+    return "\n\n".join(tag_items) + "\n\n" + score_line
 
 
 def build_user_prompt(task_number, current_title, description, log_summary=None, checklist=None, tags=None, mandatory_tag_results=None):
@@ -538,6 +551,26 @@ if st.button("Review Task", type="primary", use_container_width=True):
                 ).replace(
                     "💡 **SUGGESTION**", '<span style="color:#0d6efd;font-weight:bold;">💡 SUGGESTION</span>**'
                 )
+                # Color the overall completeness score
+                def color_completeness_score(match):
+                    text = match.group(0)
+                    pct_match = re.search(r'\((\d+)%\)', text)
+                    if pct_match:
+                        pct = int(pct_match.group(1))
+                    else:
+                        nums = re.search(r'(\d+)/(\d+)', text)
+                        if nums and int(nums.group(2)) > 0:
+                            pct = int(int(nums.group(1)) / int(nums.group(2)) * 100)
+                        else:
+                            pct = 0
+                    if pct >= 80:
+                        color = "#198754"
+                    elif pct >= 50:
+                        color = "#d4930d"
+                    else:
+                        color = "#dc3545"
+                    return f'<span style="color:{color};font-weight:bold;">{text}</span>'
+                colored = re.sub(r'Overall completeness score:.*', color_completeness_score, colored)
                 st.markdown(colored, unsafe_allow_html=True)
 
                 # Store result for notification
