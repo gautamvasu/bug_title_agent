@@ -183,14 +183,35 @@ def check_mandatory_tags(mandatory_tags, actual_tags):
     """Compare mandatory tags against actual task tags. Returns formatted results."""
     if not mandatory_tags:
         return None
-    actual_lower = {t.lower().strip() for t in actual_tags}
+    actual_lower = [t.lower().strip() for t in actual_tags]
+    actual_original = {t.lower().strip(): t for t in actual_tags}
     results = []
     present_count = 0
     for tag in mandatory_tags:
         tag_clean = tag.strip()
         if not tag_clean:
             continue
-        if tag_clean.lower() in actual_lower:
+        tag_lower = tag_clean.lower()
+        if '*' in tag_clean:
+            # Wildcard matching
+            pattern = tag_lower.replace('*', '')
+            matched = []
+            if tag_clean.startswith('*'):
+                # *foundby — match tags ending with pattern
+                matched = [actual_original[t] for t in actual_lower if t.endswith(pattern)]
+            elif tag_clean.endswith('*'):
+                # foundby* — match tags starting with pattern
+                matched = [actual_original[t] for t in actual_lower if t.startswith(pattern)]
+            else:
+                # fo*by — match tags containing pattern parts
+                matched = [actual_original[t] for t in actual_lower if pattern in t]
+            if matched:
+                matched_names = ', '.join(f'`{m}`' for m in matched)
+                results.append(f"- 🟢 **PRESENT**: Tag pattern `{tag_clean}` — matched: {matched_names}")
+                present_count += 1
+            else:
+                results.append(f"- 🔴 **MISSING**: Tag pattern `{tag_clean}` — No matching tag found on the task.")
+        elif tag_lower in actual_lower:
             results.append(f"- 🟢 **PRESENT**: Tag `{tag_clean}`")
             present_count += 1
         else:
@@ -507,10 +528,11 @@ mandatory_tags_input = None
 if tags_source == "Paste manually":
     mandatory_tags_input = st.text_area(
         "Enter mandatory tags (one per line)",
-        placeholder="severity\ncomponent\nplatform\nteam\nproduct-area",
+        placeholder="severity\ncomponent\nplatform\nFoundBy*\n*testing",
         height=120,
-        help="List tags that must be present on every task. One tag per line.",
+        help="List tags that must be present on every task. One tag per line. Use * for wildcard: FoundBy* matches any tag starting with FoundBy, *testing matches any tag ending with testing.",
     )
+    st.caption("Use `*` for wildcard matching: `FoundBy*` = starts with, `*testing` = ends with")
 
 elif tags_source == "Upload file":
     uploaded_tags = st.file_uploader(
