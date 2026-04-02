@@ -73,13 +73,13 @@ def get_default_key(env_var):
 
 
 def fetch_task_details(task_number):
-    """Fetch task title, description, and creator from Meta Phabricator using jf CLI."""
+    """Fetch task title, description, creator, tags, and status from Meta Phabricator using jf CLI."""
     number = task_number.strip().lstrip("Tt")
     try:
         result = subprocess.run(
             [
                 "jf", "graphql", "--query",
-                f'{{ task(number: {number}) {{ name, task_description {{ text }}, task_creator {{ name, unixname }}, tags {{ nodes {{ name }} }} }} }}',
+                f'{{ task(number: {number}) {{ name, status, task_description {{ text }}, task_creator {{ name, unixname }}, tags {{ nodes {{ name }} }} }} }}',
             ],
             capture_output=True,
             text=True,
@@ -90,6 +90,7 @@ def fetch_task_details(task_number):
             task = data.get("task")
             if task:
                 name = task.get("name", "")
+                status = task.get("status", "")
                 description = ""
                 task_desc = task.get("task_description")
                 if task_desc:
@@ -99,10 +100,10 @@ def fetch_task_details(task_number):
                 creator_unixname = creator.get("unixname", "")
                 tags_nodes = (task.get("tags") or {}).get("nodes") or []
                 tags = [t.get("name", "") for t in tags_nodes]
-                return name, description, creator_name, creator_unixname, tags
-        return None, None, None, None, []
+                return name, description, creator_name, creator_unixname, tags, status
+        return None, None, None, None, [], None
     except Exception:
-        return None, None, None, None, []
+        return None, None, None, None, [], None
 
 
 def send_gchat_message(unixname, message_text):
@@ -359,11 +360,16 @@ fetched_description = None
 creator_name = None
 creator_unixname = None
 fetched_tags = []
+task_status = None
+task_is_closed = False
 if task_number:
     with st.spinner("Fetching task details..."):
-        fetched_title, fetched_description, creator_name, creator_unixname, fetched_tags = fetch_task_details(task_number)
+        fetched_title, fetched_description, creator_name, creator_unixname, fetched_tags, task_status = fetch_task_details(task_number)
     if fetched_title:
         st.success(f"Fetched title: **{fetched_title}**")
+    if task_status and task_status.lower() in ("closed", "resolved", "invalid", "duplicate", "wontfix"):
+        task_is_closed = True
+        st.warning(f"This task is **{task_status}**. Only open tasks can be reviewed.")
     if creator_name:
         st.info(f"Creator: **{creator_name}** ({creator_unixname})")
     if fetched_description:
@@ -634,7 +640,9 @@ def colorize_result(result):
 
 
 if st.button("Review Task", type="primary", use_container_width=True):
-    if not api_key:
+    if task_is_closed:
+        st.error(f"Task {task_number} is **{task_status}**. Cannot review a closed task.")
+    elif not api_key:
         st.warning("Please enter your API key in the sidebar.")
     elif not task_number or not current_title:
         st.warning("Please enter both a task number and title.")
