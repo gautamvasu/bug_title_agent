@@ -127,12 +127,12 @@ def fetch_user_fbid(unixname):
 
 
 def fetch_open_tasks_by_owner(owner_unixname, limit=20, days=None):
-    """Fetch open tasks assigned to a specific owner, optionally filtered by creation date."""
+    """Fetch open tasks created by a specific user, optionally filtered by creation date."""
     fbid, owner_name = fetch_user_fbid(owner_unixname.strip())
     if not fbid:
         return [], None
     children = [
-        {"key": "EQUALS_ANY_OF_FBIDS", "field": "TASK_OWNER_FBID", "value": [{"title": "", "fbid": fbid}]},
+        {"key": "EQUALS_ANY_OF_FBIDS", "field": "TASK_AUTHOR_FBID", "value": [{"title": "", "fbid": fbid}]},
         {"key": "EQUALS_ANY_OF_TASK_STATUSES", "field": "TASK_STATUS", "value": ["OPEN"]},
     ]
     if days:
@@ -426,7 +426,7 @@ with st.sidebar:
 
 review_mode = st.radio(
     "Review Mode",
-    ["Single Task", "Multiple Tasks", "All Open Tasks by Owner"],
+    ["Single Task", "Multiple Tasks", "All Open Tasks by Creator"],
     horizontal=True,
 )
 
@@ -480,8 +480,8 @@ elif review_mode == "Multiple Tasks":
         task_numbers = [t.strip() for t in multi_input.splitlines() if t.strip()]
         st.info(f"**{len(task_numbers)}** task(s) to review")
 
-else:  # All Open Tasks by Owner
-    owner_input = st.text_input("Owner unixname", placeholder="vgautam")
+else:  # All Open Tasks by Creator
+    owner_input = st.text_input("Creator unixname", placeholder="vgautam")
     col1, col2 = st.columns(2)
     with col1:
         date_range = st.selectbox("Created in last", ["All time", "7 days", "14 days", "30 days", "60 days", "90 days", "180 days"], index=1)
@@ -489,10 +489,10 @@ else:  # All Open Tasks by Owner
         task_limit = st.slider("Max tasks", min_value=5, max_value=50, value=20)
     days_filter = None if date_range == "All time" else int(date_range.split()[0])
     if owner_input:
-        with st.spinner(f"Fetching open tasks for {owner_input}..."):
+        with st.spinner(f"Fetching open tasks created by {owner_input}..."):
             owner_tasks, owner_name = fetch_open_tasks_by_owner(owner_input, limit=task_limit, days=days_filter)
         if owner_tasks:
-            st.success(f"Found **{len(owner_tasks)}** open task(s) for **{owner_name or owner_input}**")
+            st.success(f"Found **{len(owner_tasks)}** open task(s) created by **{owner_name or owner_input}**")
             # Track previous select_all state to detect toggle
             prev_select_all = st.session_state.get("owner_select_all", True)
             select_all = st.checkbox("Select all", value=prev_select_all, key="owner_select_all_cb")
