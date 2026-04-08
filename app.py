@@ -484,7 +484,7 @@ else:  # All Open Tasks by Owner
     owner_input = st.text_input("Owner unixname", placeholder="vgautam")
     col1, col2 = st.columns(2)
     with col1:
-        date_range = st.selectbox("Created in last", ["All time", "7 days", "14 days", "30 days", "60 days", "90 days", "180 days"], index=3)
+        date_range = st.selectbox("Created in last", ["All time", "7 days", "14 days", "30 days", "60 days", "90 days", "180 days"], index=1)
     with col2:
         task_limit = st.slider("Max tasks", min_value=5, max_value=50, value=20)
     days_filter = None if date_range == "All time" else int(date_range.split()[0])
