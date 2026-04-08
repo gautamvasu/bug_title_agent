@@ -106,6 +106,56 @@ def fetch_task_details(task_number):
         return None, None, None, None, [], False
 
 
+def fetch_user_fbid(unixname):
+    """Get the FBID for a unixname."""
+    try:
+        result = subprocess.run(
+            [
+                "jf", "graphql", "--query",
+                f'{{ employees_by_unixname_or_email(unixnames_or_emails: ["{unixname}"]) {{ fbid: unencoded_id, name }} }}',
+            ],
+            capture_output=True, text=True, timeout=10,
+        )
+        if result.returncode == 0:
+            data = json.loads(result.stdout)
+            employees = data.get("employees_by_unixname_or_email", [])
+            if employees:
+                return employees[0].get("fbid"), employees[0].get("name")
+        return None, None
+    except Exception:
+        return None, None
+
+
+def fetch_open_tasks_by_owner(owner_unixname, limit=20, days=None):
+    """Fetch open tasks assigned to a specific owner, optionally filtered by creation date."""
+    fbid, owner_name = fetch_user_fbid(owner_unixname.strip())
+    if not fbid:
+        return [], None
+    children = [
+        {"key": "EQUALS_ANY_OF_FBIDS", "field": "TASK_OWNER_FBID", "value": [{"title": "", "fbid": fbid}]},
+        {"key": "EQUALS_ANY_OF_TASK_STATUSES", "field": "TASK_STATUS", "value": ["OPEN"]},
+    ]
+    if days:
+        children.append({"key": "NEWER_THAN_RELATIVE_DATE", "field": "TASK_TIME_CREATED", "value": f"-{days} days"})
+    query_json = json.dumps({"key": "AND", "children": children})
+    try:
+        result = subprocess.run(
+            [
+                "jf", "graphql", "--query",
+                f'{{ task_search_query(query: {{ q: {json.dumps(query_json)} }}) {{ ... on InternalTaskSearchQuery {{ search_items(first: {limit}) {{ nodes {{ prefixed_number, task_title }} }} }} }} }}',
+            ],
+            capture_output=True, text=True, timeout=15,
+        )
+        if result.returncode == 0:
+            data = json.loads(result.stdout)
+            nodes = data.get("task_search_query", {}).get("search_items", {}).get("nodes", [])
+            tasks = [{"number": n["prefixed_number"], "title": n["task_title"]} for n in nodes]
+            return tasks, owner_name
+        return [], owner_name
+    except Exception:
+        return [], owner_name
+
+
 def send_gchat_message(unixname, message_text):
     """Send a Google Chat DM to a user using the gchat CLI."""
     import tempfile
@@ -374,41 +424,98 @@ with st.sidebar:
             else:
                 st.info(f"Enter your API key. {provider_config['help']}")
 
-task_number = st.text_input("Task Number", placeholder="T12345")
+review_mode = st.radio(
+    "Review Mode",
+    ["Single Task", "Multiple Tasks", "All Open Tasks by Owner"],
+    horizontal=True,
+)
 
+task_numbers = []
 fetched_title = None
 fetched_description = None
 creator_name = None
 creator_unixname = None
 fetched_tags = []
 task_is_closed = False
-if task_number:
-    with st.spinner("Fetching task details..."):
-        fetched_title, fetched_description, creator_name, creator_unixname, fetched_tags, task_is_closed = fetch_task_details(task_number)
-    if fetched_title:
-        st.success(f"Fetched title: **{fetched_title}**")
-    if task_is_closed:
-        st.warning("This task is **Closed**. Only open tasks can be reviewed.")
-    if creator_name:
-        st.info(f"Creator: **{creator_name}** ({creator_unixname})")
-    if fetched_description:
-        with st.expander("Task Description (fetched)", expanded=False):
-            st.text(fetched_description[:2000])
+current_title = ""
+description = ""
 
-current_title = st.text_input(
-    "Current Bug Title",
-    value=fetched_title or "",
-    placeholder="login not working",
-    help="Auto-filled from task number, or enter manually",
-)
+if review_mode == "Single Task":
+    task_number = st.text_input("Task Number", placeholder="T12345")
+    if task_number:
+        task_numbers = [task_number.strip()]
+        with st.spinner("Fetching task details..."):
+            fetched_title, fetched_description, creator_name, creator_unixname, fetched_tags, task_is_closed = fetch_task_details(task_number)
+        if fetched_title:
+            st.success(f"Fetched title: **{fetched_title}**")
+        if task_is_closed:
+            st.warning("This task is **Closed**. Only open tasks can be reviewed.")
+        if creator_name:
+            st.info(f"Creator: **{creator_name}** ({creator_unixname})")
+        if fetched_description:
+            with st.expander("Task Description (fetched)", expanded=False):
+                st.text(fetched_description[:2000])
+    current_title = st.text_input(
+        "Current Bug Title",
+        value=fetched_title or "",
+        placeholder="login not working",
+        help="Auto-filled from task number, or enter manually",
+    )
+    description = st.text_area(
+        "Bug Description (optional - helps generate better titles)",
+        value=fetched_description or "",
+        placeholder="Describe the bug in detail...",
+        height=150,
+        help="Auto-filled from task, or enter manually. More detail = better suggestions.",
+    )
 
-description = st.text_area(
-    "Bug Description (optional - helps generate better titles)",
-    value=fetched_description or "",
-    placeholder="Describe the bug in detail...",
-    height=150,
-    help="Auto-filled from task, or enter manually. More detail = better suggestions.",
-)
+elif review_mode == "Multiple Tasks":
+    multi_input = st.text_area(
+        "Enter task numbers (one per line)",
+        placeholder="T12345\nT67890\nT11111",
+        height=120,
+        help="Enter multiple task numbers, one per line. Each will be reviewed separately.",
+    )
+    if multi_input:
+        task_numbers = [t.strip() for t in multi_input.splitlines() if t.strip()]
+        st.info(f"**{len(task_numbers)}** task(s) to review")
+
+else:  # All Open Tasks by Owner
+    owner_input = st.text_input("Owner unixname", placeholder="vgautam")
+    col1, col2 = st.columns(2)
+    with col1:
+        date_range = st.selectbox("Created in last", ["All time", "7 days", "14 days", "30 days", "60 days", "90 days", "180 days"], index=3)
+    with col2:
+        task_limit = st.slider("Max tasks", min_value=5, max_value=50, value=20)
+    days_filter = None if date_range == "All time" else int(date_range.split()[0])
+    if owner_input:
+        with st.spinner(f"Fetching open tasks for {owner_input}..."):
+            owner_tasks, owner_name = fetch_open_tasks_by_owner(owner_input, limit=task_limit, days=days_filter)
+        if owner_tasks:
+            st.success(f"Found **{len(owner_tasks)}** open task(s) for **{owner_name or owner_input}**")
+            # Track previous select_all state to detect toggle
+            prev_select_all = st.session_state.get("owner_select_all", True)
+            select_all = st.checkbox("Select all", value=prev_select_all, key="owner_select_all_cb")
+            if select_all != prev_select_all:
+                st.session_state["owner_select_all"] = select_all
+                for t in owner_tasks:
+                    st.session_state[f"sel_{t['number']}"] = select_all
+                st.rerun()
+            st.session_state["owner_select_all"] = select_all
+            selected = []
+            for t in owner_tasks:
+                if f"sel_{t['number']}" not in st.session_state:
+                    st.session_state[f"sel_{t['number']}"] = select_all
+                checked = st.checkbox(f"**{t['number']}**: {t['title']}", key=f"sel_{t['number']}")
+                if checked:
+                    selected.append(t["number"])
+            task_numbers = selected
+            if selected:
+                st.info(f"**{len(selected)}** task(s) selected for review")
+        elif owner_name:
+            st.warning(f"No open tasks found for **{owner_name}**")
+        else:
+            st.error(f"User **{owner_input}** not found")
 
 st.subheader("Log Attachment")
 uploaded_log = st.file_uploader(
@@ -582,9 +689,11 @@ else:
 
 mandatory_tags = [t.strip() for t in mandatory_tags_input.splitlines() if t.strip()] if mandatory_tags_input else []
 
-# Clear review state if task number changed
-if task_number != st.session_state.get("last_task_number", ""):
-    for key in ["last_review_result", "last_review_colored", "last_task_number", "last_creator_unixname", "last_creator_name"]:
+# Clear review state if task numbers changed
+current_task_key = ",".join(task_numbers)
+if current_task_key != st.session_state.get("last_task_key", ""):
+    for key in ["last_review_result", "last_review_colored", "last_task_number", "last_task_key",
+                 "last_creator_unixname", "last_creator_name", "multi_results"]:
         st.session_state.pop(key, None)
 
 
@@ -660,51 +769,111 @@ def colorize_result(result):
     return '\n'.join(html_parts)
 
 
-if st.button("Review Task", type="primary", use_container_width=True):
-    if task_is_closed:
-        st.error(f"Task {task_number} is **Closed**. Cannot review a closed task.")
-    elif not api_key:
+button_label = "Review Task" if len(task_numbers) <= 1 else f"Review {len(task_numbers)} Tasks"
+if st.button(button_label, type="primary", use_container_width=True):
+    if not api_key:
         st.warning("Please enter your API key in the sidebar.")
-    elif not task_number or not current_title:
-        st.warning("Please enter both a task number and title.")
+    elif not task_numbers:
+        st.warning("Please enter at least one task number.")
+    elif review_mode == "Single Task" and task_is_closed:
+        st.error(f"Task {task_numbers[0]} is **Closed**. Cannot review a closed task.")
+    elif review_mode == "Single Task" and not current_title:
+        st.warning("Please enter a task number and title.")
     else:
-        with st.spinner("Reviewing task..."):
-            try:
-                mtr = check_mandatory_tags(mandatory_tags, fetched_tags) if mandatory_tags else None
-                result = CALL_FUNCTIONS[provider](api_key, task_number, current_title, description, log_summary, checklist_text, fetched_tags, mtr)
-                st.session_state["last_review_result"] = result
-                st.session_state["last_review_colored"] = colorize_result(result)
-                st.session_state["last_task_number"] = task_number
-                st.session_state["last_creator_unixname"] = creator_unixname
-                st.session_state["last_creator_name"] = creator_name
-            except Exception as e:
-                st.error(f"Error: {e}")
-
-# Display review result from session state
-if st.session_state.get("last_review_colored") and st.session_state.get("last_task_number") == task_number:
-    st.divider()
-    st.subheader(f"Review for {st.session_state['last_task_number']}")
-    st.markdown(st.session_state["last_review_colored"], unsafe_allow_html=True)
-
-# Notify creator button
-if st.session_state.get("last_review_result") and st.session_state.get("last_creator_unixname") and st.session_state.get("last_task_number") == task_number:
-    st.divider()
-    notify_creator = st.session_state.get("last_creator_name") or st.session_state["last_creator_unixname"]
-    st.markdown('<style>div[data-testid="stButton"]:last-of-type button {background-color: #198754 !important; color: white !important; border: none !important; padding: 0.5rem 1rem !important; font-size: 1rem !important; font-weight: 600 !important; border-radius: 0.5rem !important;}</style>', unsafe_allow_html=True)
-    if st.button(f"Notify {notify_creator} on Google Chat", type="primary", use_container_width=True):
-        review = st.session_state["last_review_result"]
-        # Strip any HTML tags for plain text gchat message
-        clean_review = re.sub(r'<[^>]+>', '', review)
-        gchat_msg = f"Hi! Your task {task_number} has been reviewed by DefectLens.\n\n{clean_review}"
-        with st.spinner("Sending Google Chat message..."):
-            success, msg = send_gchat_message(
-                st.session_state["last_creator_unixname"],
-                gchat_msg,
-            )
-        if success:
-            st.success(f"Notified {notify_creator} on Google Chat!")
+        if review_mode == "Single Task":
+            # Single task review
+            with st.spinner("Reviewing task..."):
+                try:
+                    mtr = check_mandatory_tags(mandatory_tags, fetched_tags) if mandatory_tags else None
+                    result = CALL_FUNCTIONS[provider](api_key, task_numbers[0], current_title, description, log_summary, checklist_text, fetched_tags, mtr)
+                    st.session_state["last_review_result"] = result
+                    st.session_state["last_review_colored"] = colorize_result(result)
+                    st.session_state["last_task_number"] = task_numbers[0]
+                    st.session_state["last_task_key"] = current_task_key
+                    st.session_state["last_creator_unixname"] = creator_unixname
+                    st.session_state["last_creator_name"] = creator_name
+                except Exception as e:
+                    st.error(f"Error: {e}")
         else:
-            st.error(f"Failed to notify: {msg}")
+            # Multi-task review
+            multi_results = []
+            progress = st.progress(0, text="Reviewing tasks...")
+            for i, tn in enumerate(task_numbers):
+                progress.progress((i) / len(task_numbers), text=f"Reviewing {tn} ({i+1}/{len(task_numbers)})...")
+                try:
+                    t_title, t_desc, t_creator_name, t_creator_unix, t_tags, t_closed = fetch_task_details(tn)
+                    if t_closed:
+                        multi_results.append({
+                            "task": tn, "title": t_title, "skipped": True,
+                            "reason": "Task is closed",
+                        })
+                        continue
+                    if not t_title:
+                        multi_results.append({
+                            "task": tn, "title": None, "skipped": True,
+                            "reason": "Task not found",
+                        })
+                        continue
+                    mtr = check_mandatory_tags(mandatory_tags, t_tags) if mandatory_tags else None
+                    result = CALL_FUNCTIONS[provider](api_key, tn, t_title, t_desc or "", log_summary, checklist_text, t_tags, mtr)
+                    multi_results.append({
+                        "task": tn, "title": t_title, "skipped": False,
+                        "result": result, "colored": colorize_result(result),
+                        "creator_name": t_creator_name, "creator_unixname": t_creator_unix,
+                    })
+                except Exception as e:
+                    multi_results.append({
+                        "task": tn, "title": None, "skipped": True,
+                        "reason": str(e),
+                    })
+            progress.progress(1.0, text="Done!")
+            st.session_state["multi_results"] = multi_results
+            st.session_state["last_task_key"] = current_task_key
+
+# Display results
+if review_mode == "Single Task":
+    if st.session_state.get("last_review_colored") and st.session_state.get("last_task_key") == current_task_key:
+        st.divider()
+        st.subheader(f"Review for {st.session_state['last_task_number']}")
+        st.markdown(st.session_state["last_review_colored"], unsafe_allow_html=True)
+        # Notify creator button
+        if st.session_state.get("last_review_result") and st.session_state.get("last_creator_unixname"):
+            st.divider()
+            notify_creator = st.session_state.get("last_creator_name") or st.session_state["last_creator_unixname"]
+            st.markdown('<style>div[data-testid="stButton"]:last-of-type button {background-color: #198754 !important; color: white !important; border: none !important; padding: 0.5rem 1rem !important; font-size: 1rem !important; font-weight: 600 !important; border-radius: 0.5rem !important;}</style>', unsafe_allow_html=True)
+            if st.button(f"Notify {notify_creator} on Google Chat", type="primary", use_container_width=True):
+                review = st.session_state["last_review_result"]
+                clean_review = re.sub(r'<[^>]+>', '', review)
+                gchat_msg = f"Hi! Your task {st.session_state['last_task_number']} has been reviewed by DefectLens.\n\n{clean_review}"
+                with st.spinner("Sending Google Chat message..."):
+                    success, msg = send_gchat_message(st.session_state["last_creator_unixname"], gchat_msg)
+                if success:
+                    st.success(f"Notified {notify_creator} on Google Chat!")
+                else:
+                    st.error(f"Failed to notify: {msg}")
+else:
+    if st.session_state.get("multi_results") and st.session_state.get("last_task_key") == current_task_key:
+        st.divider()
+        reviewed = [r for r in st.session_state["multi_results"] if not r["skipped"]]
+        skipped = [r for r in st.session_state["multi_results"] if r["skipped"]]
+        st.subheader(f"Reviewed {len(reviewed)} task(s), skipped {len(skipped)}")
+        if skipped:
+            with st.expander(f"Skipped tasks ({len(skipped)})", expanded=False):
+                for r in skipped:
+                    st.warning(f"**{r['task']}**: {r['reason']}")
+        for r in reviewed:
+            with st.expander(f"{r['task']}: {r['title']}", expanded=True):
+                st.markdown(r["colored"], unsafe_allow_html=True)
+                if r.get("creator_unixname"):
+                    c_name = r.get("creator_name") or r["creator_unixname"]
+                    if st.button(f"Notify {c_name}", key=f"notify_{r['task']}"):
+                        clean_review = re.sub(r'<[^>]+>', '', r["result"])
+                        gchat_msg = f"Hi! Your task {r['task']} has been reviewed by DefectLens.\n\n{clean_review}"
+                        success, msg = send_gchat_message(r["creator_unixname"], gchat_msg)
+                        if success:
+                            st.success(f"Notified {c_name}!")
+                        else:
+                            st.error(f"Failed: {msg}")
 
 st.divider()
 st.caption("DefectLens — Powered by MetaGen & Llama")
