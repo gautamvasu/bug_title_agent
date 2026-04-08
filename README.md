@@ -6,6 +6,10 @@ Powered by **MetaGen & Llama** — fully internal, no external API dependencies.
 
 ## Features
 
+- **Three Review Modes:**
+  - **Single Task** — Review one task at a time with full details.
+  - **Multiple Tasks** — Paste multiple task numbers and review them all in one go.
+  - **All Open Tasks by Owner** — Enter a unixname to fetch all open tasks for that person, filter by date range, select which ones to review, and batch-review them.
 - **Checklist Gap Analysis** — Compare bug reports against a configurable checklist. Missing items flagged in red, partial in amber, present in green.
 - **Mandatory Tag Check** — Define required tags with wildcard support (`FoundBy*`, `*testing`) and verify they are applied to the task.
 - **Log Parsing** — Upload bugreport/logcat files (.txt, .log, .gz, .zip). Automatically extracts crashes, ANRs, exceptions, and tombstones.
@@ -52,16 +56,20 @@ Opens at `http://localhost:8501`.
 
 ## How It Works
 
-1. **Enter a task number** — DefectLens fetches the title, description, creator, status, and tags from Phabricator. Closed tasks are blocked from review.
+1. **Choose a review mode:**
+   - **Single Task** — Enter a task number to review one task.
+   - **Multiple Tasks** — Paste multiple task numbers (one per line).
+   - **All Open Tasks by Owner** — Enter a unixname, filter by date range (7/14/30/60/90/180 days or all time), and select tasks to review.
 2. **Upload a log file** (optional) — Bugreport or logcat files are parsed for crash/error signals.
 3. **Provide a checklist** (optional) — Paste, upload a file (.txt, .csv, .xlsx), or link a Google Sheet.
 4. **Define mandatory tags** (optional) — Paste, upload, or link a Google Sheet with required tags.
    - Supports wildcard matching: `FoundBy*` matches any tag starting with "FoundBy", `*testing` matches any tag ending with "testing".
-5. **Click "Review Task"** — Get a full review with:
+5. **Click "Review Task(s)"** — Get a full review with:
    - Mandatory tag check (present/missing) with wildcard support
    - Checklist gap analysis with color-coded results
    - Suggested defect titles in bold blue
-6. **Notify creator** — Send the review to the task creator on Google Chat with one click.
+   - Progress bar for multi-task reviews
+6. **Notify creator** — Send the review to the task creator on Google Chat with one click (per task).
 
 ## Example Output
 
