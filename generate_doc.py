@@ -82,7 +82,7 @@ features = [
     'Mandatory Tag Verification — Check required tags with wildcard support (e.g., FoundBy*, *testing).',
     'Log Parsing — Extract crashes, ANRs, exceptions, and tombstones from bugreport/logcat files.',
     'Defect Title Suggestions — AI-generated title improvements based on description and log signals.',
-    'Multi-Task Review — Review single tasks, multiple tasks, or all open tasks by owner with date filtering.',
+    'Multi-Task Review — Review single tasks, multiple tasks, or all open tasks by creator with date filtering.',
     'Closed Task Detection — Automatically blocks review of closed/resolved tasks.',
     'Google Chat Notifications — Send review results to task creators via Google Chat DM.',
     'Auto-fetch from Phabricator — Pulls task title, description, creator, status, and tags via jf CLI.',
@@ -130,11 +130,11 @@ components = [
     ('Streamlit UI (app.py)',
      'The main application file containing all UI logic, API integrations, and data processing. '
      'Built with Streamlit framework for rapid prototyping of data-centric web apps. '
-     'Handles three review modes: Single Task, Multiple Tasks, and All Open Tasks by Owner.'),
+     'Handles three review modes: Single Task, Multiple Tasks, and All Open Tasks by Creator.'),
     ('Task Fetcher',
      'Interfaces with Meta Phabricator via the jf graphql CLI. Fetches task details including '
      'title, description, creator, tags, and status. For batch mode, uses PowerSearch API '
-     '(task_search_query) to find open tasks by owner with date range filtering.'),
+     '(task_search_query) to find open tasks by creator with date range filtering.'),
     ('Review Engine',
      'Core analysis module that orchestrates the review process:\n'
      '• Mandatory Tag Check — Compares task tags against required tags with wildcard matching.\n'
@@ -157,7 +157,7 @@ for name, desc in components:
 
 doc.add_heading('2.3 Data Flow', level=2)
 steps = [
-    'User enters task number(s) or owner unixname.',
+    'User enters task number(s) or creator unixname.',
     'Task Fetcher queries Phabricator GraphQL API for task details (title, description, creator, tags, status).',
     'User optionally uploads log files, provides checklist, and defines mandatory tags.',
     'On "Review Task" click, mandatory tags are checked locally (no AI needed).',
@@ -287,9 +287,9 @@ doc.add_paragraph(
     'Results are displayed in expandable sections, one per task.'
 )
 
-doc.add_heading('All Open Tasks by Owner', level=3)
+doc.add_heading('All Open Tasks by Creator', level=3)
 doc.add_paragraph(
-    'Enter an owner\'s unixname to fetch all their open tasks from Phabricator. '
+    'Enter a creator\'s unixname to fetch all their open tasks from Phabricator. '
     'Filter by date range (7, 14, 30, 60, 90, 180 days, or all time) and set a maximum task count (5-50). '
     'Tasks appear as checkboxes — use "Select all" to toggle all, or pick individual tasks. '
     'Only selected tasks are reviewed when you click the review button.'
@@ -376,7 +376,7 @@ funcs.style = 'Light Grid Accent 1'
 func_data = [
     ('fetch_task_details()', 'Fetch task name, description, creator, tags, status from Phabricator'),
     ('fetch_user_fbid()', 'Resolve unixname to FBID for task search'),
-    ('fetch_open_tasks_by_owner()', 'Search open tasks by owner with date range filter'),
+    ('fetch_open_tasks_by_owner()', 'Search open tasks by creator with date range filter'),
     ('check_mandatory_tags()', 'Compare mandatory tags (with wildcards) against task tags'),
     ('parse_log()', 'Extract error signals from bugreport/logcat files'),
     ('build_user_prompt()', 'Assemble the LLM prompt with all task context'),
