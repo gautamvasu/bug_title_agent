@@ -1,6 +1,6 @@
 ## DefectLens — Bug Report Review Tool
 
-DefectLens is a Meta-internal tool that reviews Phabricator bug reports for completeness and quality. It helps QA engineers and developers write better defect reports.
+DefectLens is a tool that reviews Phabricator bug reports for completeness and quality. It helps QA engineers and developers write better defect reports.
 
 ### What it does
 

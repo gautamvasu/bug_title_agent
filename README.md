@@ -1,6 +1,6 @@
 # DefectLens
 
-A Meta-internal tool that reviews bug reports for completeness and suggests better defect titles. It checks your task against a checklist, verifies mandatory tags, parses logs for error signals, and notifies the creator on Google Chat about gaps found.
+A tool that reviews bug reports for completeness and suggests better defect titles. It checks your task against a checklist, verifies mandatory tags, parses logs for error signals, and notifies the creator on Google Chat about gaps found.
 
 Powered by **MetaGen & Llama** — fully internal, no external API dependencies.
 
@@ -32,7 +32,7 @@ Powered by **MetaGen & Llama** — fully internal, no external API dependencies.
 2. **Choose your AI provider:**
 
    **MetaGen (Internal — recommended):**
-   - Connect to Meta VPN
+   - Connect to VPN
    - Visit https://metagen-llm-api-keys.nest.x2p.facebook.net/
    - Click **"Create API Key"**
    - Create a MetaGen entitlement and link it to your Llama API App ID (see [MetaGen docs](https://www.internalfb.com/wiki/MetaGen/Getting_Started/MetaGen_for_Researchers/) for details)
@@ -92,7 +92,7 @@ SUGGESTION: "Camera preview freezes on Pixel 8 after switching to video mode"
 ## Requirements
 
 - Python 3.9+
-- Meta VPN (for MetaGen API access) or Ollama installed locally
+- VPN (for MetaGen API access) or Ollama installed locally
 - `jf` CLI (for Phabricator integration)
 - `gchat` CLI at `/opt/facebook/bin/gchat` (for Google Chat notifications)
 
