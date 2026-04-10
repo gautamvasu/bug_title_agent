@@ -53,7 +53,7 @@ PROVIDERS = {
     "MetaGen (Internal)": {
         "key_env": "METAGEN_API_KEY",
         "placeholder": "LLM|...",
-        "help": "Get your key at https://metagen-llm-api-keys.nest.x2p.facebook.net/ (Meta VPN required)",
+        "help": "Get your key at https://metagen-llm-api-keys.nest.x2p.facebook.net/ (VPN required)",
     },
     "Ollama (Local — No API Key)": {
         "key_env": None,
@@ -74,7 +74,7 @@ def get_default_key(env_var):
 
 
 def fetch_task_details(task_number):
-    """Fetch task title, description, creator, tags, and status from Meta Phabricator using jf CLI."""
+    """Fetch task title, description, creator, tags, and status from Phabricator using jf CLI."""
     number = task_number.strip().lstrip("Tt")
     try:
         result = subprocess.run(
@@ -494,7 +494,7 @@ elif review_mode == "Multiple Tasks":
         st.info(f"**{len(task_numbers)}** task(s) to review")
 
 else:  # All Open Tasks by Creator
-    owner_input = st.text_input("Creator unixname", placeholder="vgautam")
+    owner_input = st.text_input("Creator unixname", placeholder="unixname")
     col1, col2 = st.columns(2)
     with col1:
         date_range = st.selectbox("Created in last", ["All time", "7 days", "14 days", "30 days", "60 days", "90 days", "180 days"], index=1)
@@ -604,7 +604,7 @@ elif checklist_source == "Google Sheet link":
     sheet_url = st.text_input(
         "Google Sheet URL",
         placeholder="https://docs.google.com/spreadsheets/d/...",
-        help="Paste a Google Sheet link. The sheet must be accessible (shared within Meta).",
+        help="Paste a Google Sheet link. The sheet must be accessible (shared).",
     )
     if sheet_url:
         try:
@@ -890,4 +890,4 @@ else:
 
 st.divider()
 st.caption("DefectLens — Powered by MetaGen & Llama")
-st.caption("Oncall: Vasu Gautam (vgautam) — please connect in case of any issues/suggestions")
+st.caption("For issues/suggestions, please reach out to the DefectLens team.")
