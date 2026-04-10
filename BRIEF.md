@@ -36,4 +36,4 @@ Opens at http://localhost:8501
 
 ### Contact
 
-For questions or feedback, reach out to Vasu Gautam (vgautam).
+For questions or feedback, reach out to the DefectLens team.

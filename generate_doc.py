@@ -34,9 +34,8 @@ run.font.color.rgb = RGBColor(80, 80, 80)
 doc.add_paragraph()
 meta = doc.add_paragraph()
 meta.alignment = WD_ALIGN_PARAGRAPH.CENTER
-meta.add_run('Meta Internal Tool\n').font.size = Pt(12)
+meta.add_run('Internal Tool\n').font.size = Pt(12)
 meta.add_run('Powered by MetaGen & Llama\n\n').font.size = Pt(12)
-meta.add_run('Author: Vasu Gautam (vgautam)\n').font.size = Pt(11)
 meta.add_run('Version: 1.0\n').font.size = Pt(11)
 meta.add_run('April 2026').font.size = Pt(11)
 
@@ -71,7 +70,7 @@ doc.add_page_break()
 # -- 1. Overview --
 doc.add_heading('1. Overview', level=1)
 doc.add_paragraph(
-    'DefectLens is a Meta-internal bug report review tool that helps QA engineers and developers '
+    'DefectLens is a bug report review tool that helps QA engineers and developers '
     'evaluate the completeness of Phabricator tasks. It uses AI (MetaGen/Llama) to analyze bug reports '
     'against configurable checklists, verify mandatory tags, parse log files for error signals, '
     'and suggest improved defect titles.'
@@ -95,7 +94,7 @@ doc.add_heading('2. Architecture', level=1)
 
 doc.add_heading('2.1 System Architecture', level=2)
 doc.add_paragraph(
-    'DefectLens is a single-page Streamlit web application that integrates with multiple Meta-internal '
+    'DefectLens is a single-page Streamlit web application that integrates with multiple internal '
     'services and AI providers. The application runs locally on the user\'s machine or on a shared devserver.'
 )
 
@@ -132,7 +131,7 @@ components = [
      'Built with Streamlit framework for rapid prototyping of data-centric web apps. '
      'Handles three review modes: Single Task, Multiple Tasks, and All Open Tasks by Creator.'),
     ('Task Fetcher',
-     'Interfaces with Meta Phabricator via the jf graphql CLI. Fetches task details including '
+     'Interfaces with Phabricator via the jf graphql CLI. Fetches task details including '
      'title, description, creator, tags, and status. For batch mode, uses PowerSearch API '
      '(task_search_query) to find open tasks by creator with date range filtering.'),
     ('Review Engine',
@@ -208,9 +207,9 @@ doc.add_heading('3. Installation', level=1)
 doc.add_heading('3.1 Prerequisites', level=2)
 prereqs = [
     'Python 3.9 or higher',
-    'jf CLI (for Phabricator integration) — pre-installed on Meta laptops',
+    'jf CLI (for Phabricator integration)',
     'gchat CLI at /opt/facebook/bin/gchat (for Google Chat notifications)',
-    'Meta VPN (for MetaGen API access) or Ollama installed locally',
+    'VPN (for MetaGen API access) or Ollama installed locally',
 ]
 for p in prereqs:
     doc.add_paragraph(p, style='List Bullet')
@@ -241,7 +240,7 @@ doc.add_heading('3.3 AI Provider Configuration', level=2)
 
 doc.add_paragraph('Option A: MetaGen (Internal — recommended)')
 metagen_steps = [
-    'Connect to Meta VPN.',
+    'Connect to VPN.',
     'Visit https://metagen-llm-api-keys.nest.x2p.facebook.net/ and click "Create API Key".',
     'Go to the MetaGen entitlements portal and create a new entitlement (e.g., "your_unixname_key").',
     'Link your Llama API App ID to the MetaGen entitlement.',

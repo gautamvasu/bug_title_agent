@@ -98,4 +98,4 @@ SUGGESTION: "Camera preview freezes on Pixel 8 after switching to video mode"
 
 ## Oncall
 
-Vasu Gautam (vgautam) — please connect in case of any issues/suggestions.
+Please connect in case of any issues/suggestions.
