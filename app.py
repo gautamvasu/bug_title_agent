@@ -10,10 +10,10 @@ load_dotenv(Path(__file__).parent / ".env")
 
 SYSTEM_PROMPT = """You are a Bug Report Review Agent. Your output MUST use proper markdown formatting with line breaks between items. NEVER output bulleted items or numbered items in a single paragraph.
 
-## Mandatory Tags
-If mandatory tag results are provided, include them as-is in your output under a "## Mandatory Tags" heading before the checklist gap analysis.
+## Part 1: Mandatory Tags
+If mandatory tag results are provided, include them as-is in your output under a "## Part 1: Mandatory Tags" heading before the checklist gap analysis.
 
-## Part 1: Checklist Gap Analysis
+## Part 2: Checklist Gap Analysis
 
 First line after the heading must be:
 Overall completeness score: X/Y items covered (Z%)
@@ -28,7 +28,7 @@ If no log signals are provided, always include:
 
 If no checklist is provided, assess for: steps to reproduce, expected vs actual behavior, environment info, severity, log attachment, and screenshots.
 
-## Part 2: Suggested Defect Title
+## Part 3: Suggested Defect Title
 
 ### Analysis
 Write a short paragraph analyzing the current title's weaknesses.
@@ -46,7 +46,8 @@ FORMATTING RULES:
 - Each bullet or numbered item MUST be on its own line
 - Do NOT add extra blank lines between list items
 - NEVER combine multiple items into one paragraph
-- Use markdown headings (##, ###) to separate sections"""
+- Use markdown headings (##, ###) to separate sections
+- Always use "Part 1:", "Part 2:", "Part 3:" prefixes in section headings"""
 
 PROVIDERS = {
     "MetaGen (Internal)": {
@@ -157,13 +158,14 @@ def fetch_open_tasks_by_owner(owner_unixname, limit=20, days=None):
 
 
 def strip_formatting(text):
-    """Remove HTML tags and markdown formatting for plain-text output."""
+    """Remove HTML tags and convert markdown to gchat-compatible plain text with bold."""
     text = re.sub(r'<[^>]+>', '', text)
-    text = re.sub(r'#{1,6}\s*', '', text)  # ## headings
-    text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)  # **bold**
-    text = re.sub(r'\*(.+?)\*', r'\1', text)  # *italic*
-    text = re.sub(r'__(.+?)__', r'\1', text)  # __bold__
-    text = re.sub(r'_(.+?)_', r'\1', text)  # _italic_
+    # Convert ## headings to bold lines
+    text = re.sub(r'#{1,6}\s*(.+)', r'*\1*', text)
+    # Keep **bold** as *bold* for gchat
+    text = re.sub(r'\*\*(.+?)\*\*', r'*\1*', text)
+    text = re.sub(r'__(.+?)__', r'*\1*', text)  # __bold__ → *bold*
+    text = re.sub(r'_(.+?)_', r'\1', text)  # _italic_ → plain
     return text
 
 
@@ -302,7 +304,7 @@ def build_user_prompt(task_number, current_title, description, log_summary=None,
     if log_summary:
         prompt += f"\n\nParsed Log Signals (extracted from attached bugreport/logcat):\n{log_summary}"
     if mandatory_tag_results:
-        prompt += f"\n\nMandatory Tag Check Results (include as-is in output):\n{mandatory_tag_results}"
+        prompt += f"\n\nPart 1: Mandatory Tag Check Results (include as-is under '## Part 1: Mandatory Tags' heading):\n{mandatory_tag_results}"
     if checklist:
         prompt += f"\n\nBug Report Checklist (required information):\n{checklist}"
     prompt += "\n\nPlease review this task: first show mandatory tag results (if any), then provide the checklist gap analysis, then suggest a defect title that clearly explains the intent of the defect based on the description and logs."
