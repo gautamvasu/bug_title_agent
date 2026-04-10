@@ -156,6 +156,17 @@ def fetch_open_tasks_by_owner(owner_unixname, limit=20, days=None):
         return [], owner_name
 
 
+def strip_formatting(text):
+    """Remove HTML tags and markdown formatting for plain-text output."""
+    text = re.sub(r'<[^>]+>', '', text)
+    text = re.sub(r'#{1,6}\s*', '', text)  # ## headings
+    text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)  # **bold**
+    text = re.sub(r'\*(.+?)\*', r'\1', text)  # *italic*
+    text = re.sub(r'__(.+?)__', r'\1', text)  # __bold__
+    text = re.sub(r'_(.+?)_', r'\1', text)  # _italic_
+    return text
+
+
 def send_gchat_message(unixname, message_text):
     """Send a Google Chat DM to a user using the gchat CLI."""
     import tempfile
@@ -843,7 +854,7 @@ if review_mode == "Single Task":
             st.markdown('<style>div[data-testid="stButton"]:last-of-type button {background-color: #198754 !important; color: white !important; border: none !important; padding: 0.5rem 1rem !important; font-size: 1rem !important; font-weight: 600 !important; border-radius: 0.5rem !important;}</style>', unsafe_allow_html=True)
             if st.button(f"Notify {notify_creator} on Google Chat", type="primary", use_container_width=True):
                 review = st.session_state["last_review_result"]
-                clean_review = re.sub(r'<[^>]+>', '', review)
+                clean_review = strip_formatting(review)
                 gchat_msg = f"Hi! Your task {st.session_state['last_task_number']} has been reviewed by DefectLens.\n\n{clean_review}"
                 with st.spinner("Sending Google Chat message..."):
                     success, msg = send_gchat_message(st.session_state["last_creator_unixname"], gchat_msg)
@@ -867,7 +878,7 @@ else:
                 if r.get("creator_unixname"):
                     c_name = r.get("creator_name") or r["creator_unixname"]
                     if st.button(f"Notify {c_name}", key=f"notify_{r['task']}"):
-                        clean_review = re.sub(r'<[^>]+>', '', r["result"])
+                        clean_review = strip_formatting(r["result"])
                         gchat_msg = f"Hi! Your task {r['task']} has been reviewed by DefectLens.\n\n{clean_review}"
                         success, msg = send_gchat_message(r["creator_unixname"], gchat_msg)
                         if success:
